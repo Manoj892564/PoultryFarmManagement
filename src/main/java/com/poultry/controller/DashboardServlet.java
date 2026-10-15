@@ -46,6 +46,8 @@ public class DashboardServlet extends HttpServlet {
         request.setAttribute("monthlyFeedKg", monthlyFeedKg);
         request.setAttribute("monthlyFeedCost", monthlyFeedCost);
         request.setAttribute("eggProductionRate", eggProductionRate);
+        request.setAttribute("batchEggData", eggDAO.getMonthlyEggCollectionByBatch(month, year));
+        request.setAttribute("allBatches", batchDAO.getAllBatches());
 
         request.getRequestDispatcher("/dashboard.jsp").forward(request, response);
     }

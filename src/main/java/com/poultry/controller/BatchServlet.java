@@ -23,4 +23,28 @@ public class BatchServlet extends HttpServlet {
         request.setAttribute("batchList", batchDAO.getAllBatches());
         request.getRequestDispatcher("/batches.jsp").forward(request, response);
     }
+
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) 
+            throws ServletException, IOException {
+        HttpSession session = request.getSession(false);
+        if (session == null || session.getAttribute("loggedUser") == null) {
+            response.sendRedirect(request.getContextPath() + "/login");
+            return;
+        }
+
+        String batchIdStr = request.getParameter("batchId");
+        String addCountStr = request.getParameter("additionalBirds");
+
+        if (batchIdStr != null && addCountStr != null) {
+            try {
+                int batchId = Integer.parseInt(batchIdStr);
+                int addCount = Integer.parseInt(addCountStr);
+                if (addCount > 0) {
+                    batchDAO.addBirdsToBatch(batchId, addCount);
+                }
+            } catch (NumberFormatException ignored) {}
+        }
+        response.sendRedirect(request.getContextPath() + "/batches");
+    }
 }
