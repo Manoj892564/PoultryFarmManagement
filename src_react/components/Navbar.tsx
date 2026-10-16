@@ -1,16 +1,14 @@
 import React from 'react';
 import { User } from '../types';
-import { Database, LogOut, User as UserIcon, Menu } from 'lucide-react';
+import { LogOut, User as UserIcon, Menu } from 'lucide-react';
 
 interface Props {
   user: User;
   onLogout: () => void;
-  onOpenDbModal: () => void;
   onToggleMobileMenu: () => void;
-  dbStatus: any;
 }
 
-export const Navbar: React.FC<Props> = ({ user, onLogout, onOpenDbModal, onToggleMobileMenu, dbStatus }) => {
+export const Navbar: React.FC<Props> = ({ user, onLogout, onToggleMobileMenu }) => {
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case 'ADMIN': return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
@@ -47,24 +45,10 @@ export const Navbar: React.FC<Props> = ({ user, onLogout, onOpenDbModal, onToggl
         </div>
       </div>
 
-      {/* Right: DB Status Indicator & User Badge */}
+      {/* Right: User Badge & Actions */}
       <div className="flex items-center gap-3">
-        {/* Pulsing DB Badge */}
-        <button
-          onClick={onOpenDbModal}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 hover:bg-slate-800 border border-slate-700 text-xs text-slate-200 transition shadow-sm group"
-          title="Click to view Database & Supabase connection details"
-        >
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-          </span>
-          <Database className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition" />
-          <span className="hidden sm:inline font-medium text-slate-300">DB / Supabase</span>
-        </button>
-
         {/* User Role Badge */}
-        <div className="flex items-center gap-2.5 pl-2 border-l border-slate-800">
+        <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300">
             <UserIcon className="w-4 h-4 text-emerald-400" />
           </div>

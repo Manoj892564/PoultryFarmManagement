@@ -9,15 +9,12 @@ import { EggHarvestView } from './components/EggHarvestView';
 import { FeedView } from './components/FeedView';
 import { ReportsView } from './components/ReportsView';
 import { AcademicCodeHub } from './components/AcademicCodeHub';
-import { DatabaseModal } from './components/DatabaseModal';
 import { LoginView } from './components/LoginView';
 
 export const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(api.getSavedUser());
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [dbModalOpen, setDbModalOpen] = useState(false);
-  const [dbStatus, setDbStatus] = useState<any>(null);
 
   // Core Data States
   const [batches, setBatches] = useState<Batch[]>([]);
@@ -39,18 +36,16 @@ export const App: React.FC = () => {
   const loadAllData = async () => {
     setLoading(true);
     try {
-      const [b, e, f, s, db] = await Promise.all([
+      const [b, e, f, s] = await Promise.all([
         api.getBatches(),
         api.getEggCollections(),
         api.getFeedConsumptions(),
-        api.getDashboardSummary(),
-        api.getDbStatus()
+        api.getDashboardSummary()
       ]);
       setBatches(b);
       setEggCollections(e);
       setFeedConsumptions(f);
       setSummary(s);
-      setDbStatus(db);
       if (b.length > 0) setAddBirdsBatchId(b[0].batch_id);
     } catch (err) {
       console.error('Error loading farm data', err);
@@ -121,9 +116,7 @@ export const App: React.FC = () => {
       <Navbar
         user={user}
         onLogout={handleLogout}
-        onOpenDbModal={() => setDbModalOpen(true)}
         onToggleMobileMenu={() => setMobileMenuOpen(true)}
-        dbStatus={dbStatus}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -246,12 +239,6 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* Database & Supabase Modal */}
-      <DatabaseModal
-        isOpen={dbModalOpen}
-        onClose={() => setDbModalOpen(false)}
-        dbStatus={dbStatus}
-      />
     </div>
   );
 };

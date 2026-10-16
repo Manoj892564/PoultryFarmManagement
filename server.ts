@@ -18,6 +18,15 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Normalize request URL for Vercel serverless rewrites:
+// If request arrives as /batches or similar, prefix with /api so existing routes match
+app.use((req, res, next) => {
+  if (req.url && !req.url.startsWith('/api') && !req.url.startsWith('/_')) {
+    req.url = '/api' + (req.url.startsWith('/') ? req.url : '/' + req.url);
+  }
+  next();
+});
+
 // Initialize PostgreSQL Pool
 let connectionString = process.env.DATABASE_URL || 'postgresql://postgres.dwplfixdzaubssqgdbbw:Manojselvaraj%40123412@aws-0-ap-south-1.pooler.supabase.com:6543/postgres';
 if (connectionString.includes('?sslmode=')) {
@@ -29,7 +38,7 @@ const pool = new pg.Pool({
   ssl: {
     rejectUnauthorized: false
   },
-  connectionTimeoutMillis: 10000,
+  connectionTimeoutMillis: 5000,
 });
 
 let isDbConnected = false;
@@ -181,37 +190,12 @@ async function initDb() {
 
 initDb();
 
-// 1. Health & Connection Status
-app.get('/api/db-status', async (req, res) => {
-  try {
-    if (!isDbConnected) {
-      return res.json({
-        connected: false,
-        status: 'In-Memory / Fallback Mode',
-        host: 'Local Memory Storage',
-        database: 'Local Memory',
-        tablesCount: 4,
-        error: 'Supabase standby'
-      });
-    }
-    const client = await pool.connect();
-    const result = await client.query('SELECT NOW() as time, current_database() as db');
-    client.release();
-    return res.json({
-      connected: true,
-      status: 'Live PostgreSQL Connected',
-      timestamp: result.rows[0].time,
-      database: result.rows[0].db,
-      host: 'aws-0-ap-south-1.pooler.supabase.com',
-      ssl: true
-    });
-  } catch (e: any) {
-    return res.json({
-      connected: false,
-      status: 'Degraded / Memory Store Active',
-      error: e.message
-    });
-  }
+// 1. Health Status (Secured - no internal host or connection leaks)
+app.get('/api/db-status', (req, res) => {
+  return res.json({
+    ok: isDbConnected,
+    mode: isDbConnected ? 'production' : 'fallback'
+  });
 });
 
 // 2. Authentication
@@ -540,17 +524,22 @@ app.get('/api/dashboard-summary', async (req, res) => {
   }
 });
 
-// Serve frontend in production
-app.use(express.static(path.join(__dirname, 'dist')));
-app.get('*', (req, res, next) => {
-  if (req.url.startsWith('/api')) return next();
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'), (err) => {
-    if (err) {
-      res.send('Poultry Farm Pro API Server running. Open Vite frontend on port 5173 during development.');
-    }
+// Serve frontend in standalone production (when not on Vercel)
+if (!process.env.VERCEL) {
+  app.use(express.static(path.join(__dirname, 'dist')));
+  app.get('*', (req, res, next) => {
+    if (req.url.startsWith('/api')) return next();
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'), (err) => {
+      if (err) {
+        res.send('Poultry Farm Pro API Server running. Open Vite frontend on port 5173 during development.');
+      }
+    });
   });
-});
 
-app.listen(PORT, () => {
-  console.log(`Server listening on http://localhost:${PORT}`);
-});
+  app.listen(PORT, () => {
+    console.log(`Server listening on http://localhost:${PORT}`);
+  });
+}
+
+export default app;
+
