@@ -8,6 +8,7 @@ const CACHE_KEYS = {
   EGGS: 'poultry_cached_eggs',
   FEED: 'poultry_cached_feed',
   USER: 'poultry_active_user',
+  SUMMARY: 'poultry_cached_summary',
 };
 
 // Initial local seeds if neither API nor local cache is populated
@@ -82,6 +83,43 @@ export const api = {
   logout() {
     localStorage.removeItem(CACHE_KEYS.USER);
   },
+
+  getCachedBatches(): Batch[] {
+    try {
+      const c = localStorage.getItem(CACHE_KEYS.BATCHES);
+      return c ? JSON.parse(c) : [];
+    } catch {
+      return [];
+    }
+  },
+
+  getCachedEggCollections(): EggCollection[] {
+    try {
+      const c = localStorage.getItem(CACHE_KEYS.EGGS);
+      return c ? JSON.parse(c) : [];
+    } catch {
+      return [];
+    }
+  },
+
+  getCachedFeedConsumptions(): FeedConsumption[] {
+    try {
+      const c = localStorage.getItem(CACHE_KEYS.FEED);
+      return c ? JSON.parse(c) : [];
+    } catch {
+      return [];
+    }
+  },
+
+  getCachedSummary(): DashboardSummary | null {
+    try {
+      const c = localStorage.getItem(CACHE_KEYS.SUMMARY);
+      return c ? JSON.parse(c) : null;
+    } catch {
+      return null;
+    }
+  },
+
 
   // Batches
   async getBatches(): Promise<Batch[]> {
@@ -305,7 +343,11 @@ export const api = {
   async getDashboardSummary(): Promise<DashboardSummary> {
     try {
       const res = await fetch(`${API_BASE}/dashboard-summary`);
-      if (res.ok) return await res.json();
+      if (res.ok) {
+        const data = await res.json();
+        localStorage.setItem(CACHE_KEYS.SUMMARY, JSON.stringify(data));
+        return data;
+      }
     } catch (e) {}
 
     const batches = await this.getBatches();

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Bird, 
   Egg, 
@@ -30,16 +30,36 @@ export const Dashboard: React.FC<Props> = ({
 }) => {
   const [hoveredPoint, setHoveredPoint] = useState<number | null>(null);
 
-  // 7-day trend sample data or aggregated from recentEggs
-  const trendPoints = [
-    { day: 'Day 1', val: 3200 },
-    { day: 'Day 2', val: 3350 },
-    { day: 'Day 3', val: 3100 },
-    { day: 'Day 4', val: 3480 },
-    { day: 'Day 5', val: 3520 },
-    { day: 'Day 6', val: 3690 },
-    { day: 'Today', val: summary?.totalEggs && summary.totalEggs > 0 ? summary.totalEggs : 3845 },
-  ];
+  // Calculate dynamic, smooth 7-day daily trend curve from real collections or proportionate daily yield
+  const trendPoints = useMemo(() => {
+    const dateMap = new Map<string, number>();
+    recentEggs.forEach((e) => {
+      const d = e.collection_date ? e.collection_date.split('T')[0] : '';
+      if (d) {
+        dateMap.set(d, (dateMap.get(d) || 0) + Number(e.egg_quantity || 0));
+      }
+    });
+
+    const entries = Array.from(dateMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    const avgDaily = summary?.totalEggs ? Math.max(100, Math.round(Number(summary.totalEggs) / 7)) : 3600;
+
+    if (entries.length >= 2) {
+      return entries.slice(-7).map(([dateStr, count], i) => {
+        const dObj = new Date(dateStr);
+        const dayLabel = !isNaN(dObj.getTime())
+          ? dObj.toLocaleDateString('en-US', { weekday: 'short' })
+          : `Day ${i + 1}`;
+        return { day: dayLabel, val: count };
+      });
+    }
+
+    const ratios = [0.92, 0.96, 0.94, 0.98, 1.01, 0.99, 1.03];
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Today'];
+    return days.map((day, idx) => ({
+      day,
+      val: Math.round(avgDaily * ratios[idx])
+    }));
+  }, [recentEggs, summary]);
 
   const maxVal = Math.max(...trendPoints.map(p => p.val));
   const minVal = Math.min(...trendPoints.map(p => p.val));
@@ -52,7 +72,8 @@ export const Dashboard: React.FC<Props> = ({
 
   const points = trendPoints.map((p, idx) => {
     const x = paddingX + (idx / (trendPoints.length - 1)) * (svgWidth - paddingX * 2);
-    const y = svgHeight - paddingY - ((p.val - minVal * 0.9) / (maxVal - minVal * 0.9 || 1)) * (svgHeight - paddingY * 2);
+    const range = (maxVal - minVal * 0.9) || 1;
+    const y = svgHeight - paddingY - ((p.val - minVal * 0.9) / range) * (svgHeight - paddingY * 2);
     return { ...p, x, y };
   });
 
@@ -60,7 +81,9 @@ export const Dashboard: React.FC<Props> = ({
     return idx === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`;
   }, '');
 
-  const areaD = `${pathD} L ${points[points.length - 1].x} ${svgHeight - paddingY} L ${points[0].x} ${svgHeight - paddingY} Z`;
+  const areaD = points.length > 0 
+    ? `${pathD} L ${points[points.length - 1].x} ${svgHeight - paddingY} L ${points[0].x} ${svgHeight - paddingY} Z`
+    : '';
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -75,7 +98,7 @@ export const Dashboard: React.FC<Props> = ({
           </p>
         </div>
 
-        {/* 3 Action Buttons */}
+        {/* Action Buttons */}
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={onOpenAddBirdsModal}
@@ -112,10 +135,16 @@ export const Dashboard: React.FC<Props> = ({
             </div>
           </div>
           <div className="text-2xl font-bold text-white tracking-tight">
-            {summary?.totalBirds?.toLocaleString() || '5,000'}
+            {summary ? (
+              summary.totalBirds.toLocaleString()
+            ) : (
+              <span className="inline-block w-20 h-7 bg-slate-800/80 rounded animate-pulse" />
+            )}
           </div>
           <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
-            <span className="text-emerald-400 font-medium">{summary?.activeBatchesCount || 4}</span> Active Batches
+            <span className="text-emerald-400 font-medium">
+              {summary ? summary.activeBatchesCount : batches.filter(b => b.status === 'Active').length}
+            </span> Active Batches
           </div>
         </div>
 
@@ -128,10 +157,14 @@ export const Dashboard: React.FC<Props> = ({
             </div>
           </div>
           <div className="text-2xl font-bold text-white tracking-tight">
-            {summary?.totalEggs?.toLocaleString() || '3,845'}
+            {summary ? (
+              summary.totalEggs.toLocaleString()
+            ) : (
+              <span className="inline-block w-16 h-7 bg-slate-800/80 rounded animate-pulse" />
+            )}
           </div>
           <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
-            Efficiency: <span className="text-amber-400 font-semibold">{summary?.layingRate || '76.9'}%</span>
+            Efficiency: <span className="text-amber-400 font-semibold">{summary ? summary.layingRate : '0.0'}%</span>
           </div>
         </div>
 
@@ -144,7 +177,11 @@ export const Dashboard: React.FC<Props> = ({
             </div>
           </div>
           <div className="text-2xl font-bold text-white tracking-tight">
-            {summary?.goodEggs?.toLocaleString() || '3,799'}
+            {summary ? (
+              summary.goodEggs.toLocaleString()
+            ) : (
+              <span className="inline-block w-16 h-7 bg-slate-800/80 rounded animate-pulse" />
+            )}
           </div>
           <div className="text-[11px] text-slate-400 mt-1">
             Marketable stock
@@ -160,10 +197,14 @@ export const Dashboard: React.FC<Props> = ({
             </div>
           </div>
           <div className="text-2xl font-bold text-white tracking-tight">
-            {summary?.brokenRate || '1.2'}%
+            {summary ? (
+              `${summary.brokenRate}%`
+            ) : (
+              <span className="inline-block w-12 h-7 bg-slate-800/80 rounded animate-pulse" />
+            )}
           </div>
           <div className="text-[11px] text-slate-400 mt-1">
-            <span className="text-rose-400">{summary?.brokenEggs || 46}</span> eggs lost
+            <span className="text-rose-400">{summary ? summary.brokenEggs : 0}</span> eggs lost
           </div>
         </div>
 
@@ -176,7 +217,11 @@ export const Dashboard: React.FC<Props> = ({
             </div>
           </div>
           <div className="text-2xl font-bold text-white tracking-tight">
-            {summary?.totalFeedKg || '680'} <span className="text-xs text-slate-400 font-normal">kg</span>
+            {summary ? (
+              <>{summary.totalFeedKg} <span className="text-xs text-slate-400 font-normal">kg</span></>
+            ) : (
+              <span className="inline-block w-16 h-7 bg-slate-800/80 rounded animate-pulse" />
+            )}
           </div>
           <div className="text-[11px] text-slate-400 mt-1">
             Layer ration phase-1
@@ -192,7 +237,11 @@ export const Dashboard: React.FC<Props> = ({
             </div>
           </div>
           <div className="text-2xl font-bold text-white tracking-tight">
-            ₹{summary?.totalFeedCost || '23,800'}
+            {summary ? (
+              `₹${Number(summary.totalFeedCost).toLocaleString()}`
+            ) : (
+              <span className="inline-block w-20 h-7 bg-slate-800/80 rounded animate-pulse" />
+            )}
           </div>
           <div className="text-[11px] text-slate-400 mt-1">
             Avg ₹35.00/kg
@@ -232,10 +281,10 @@ export const Dashboard: React.FC<Props> = ({
               <line x1={paddingX} y1={svgHeight - paddingY} x2={svgWidth - paddingX} y2={svgHeight - paddingY} stroke="#334155" />
 
               {/* Area Fill */}
-              <path d={areaD} fill="url(#areaGradient)" />
+              {areaD && <path d={areaD} fill="url(#areaGradient)" />}
 
               {/* Trend Line */}
-              <path d={pathD} fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+              {pathD && <path d={pathD} fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />}
 
               {/* Interactive Points */}
               {points.map((p, idx) => (
@@ -266,7 +315,7 @@ export const Dashboard: React.FC<Props> = ({
             </svg>
 
             {/* Hover Tooltip display */}
-            {hoveredPoint !== null && (
+            {hoveredPoint !== null && points[hoveredPoint] && (
               <div className="absolute top-4 right-4 bg-slate-900 border border-emerald-500/40 px-3 py-1.5 rounded-lg text-xs shadow-xl pointer-events-none">
                 <span className="text-slate-400">{points[hoveredPoint].day}:</span>{' '}
                 <strong className="text-emerald-400">{points[hoveredPoint].val.toLocaleString()} eggs</strong>
@@ -297,7 +346,9 @@ export const Dashboard: React.FC<Props> = ({
               >
                 <div>
                   <div className="font-semibold text-xs text-white">{b.batch_name}</div>
-                  <div className="text-[11px] text-slate-400">{b.breed} • {b.arrival_date}</div>
+                  <div className="text-[11px] text-slate-400">
+                    {b.breed} • {b.arrival_date ? b.arrival_date.split('T')[0] : ''}
+                  </div>
                 </div>
                 <div className="text-right">
                   <div className="text-xs font-bold text-emerald-400">

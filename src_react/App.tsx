@@ -8,7 +8,6 @@ import { BatchesView } from './components/BatchesView';
 import { EggHarvestView } from './components/EggHarvestView';
 import { FeedView } from './components/FeedView';
 import { ReportsView } from './components/ReportsView';
-import { AcademicCodeHub } from './components/AcademicCodeHub';
 import { LoginView } from './components/LoginView';
 
 export const App: React.FC = () => {
@@ -16,12 +15,12 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Core Data States
-  const [batches, setBatches] = useState<Batch[]>([]);
-  const [eggCollections, setEggCollections] = useState<EggCollection[]>([]);
-  const [feedConsumptions, setFeedConsumptions] = useState<FeedConsumption[]>([]);
-  const [summary, setSummary] = useState<DashboardSummary | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Core Data States - Hydrated instantly from cache to eliminate refresh delay
+  const [batches, setBatches] = useState<Batch[]>(() => api.getCachedBatches());
+  const [eggCollections, setEggCollections] = useState<EggCollection[]>(() => api.getCachedEggCollections());
+  const [feedConsumptions, setFeedConsumptions] = useState<FeedConsumption[]>(() => api.getCachedFeedConsumptions());
+  const [summary, setSummary] = useState<DashboardSummary | null>(() => api.getCachedSummary());
+  const [loading, setLoading] = useState(false);
 
   // Global Add Birds Modal
   const [isAddBirdsOpen, setIsAddBirdsOpen] = useState(false);
@@ -176,10 +175,6 @@ export const App: React.FC = () => {
               eggCollections={eggCollections}
               feedConsumptions={feedConsumptions}
             />
-          )}
-
-          {activeTab === 'code-hub' && (
-            <AcademicCodeHub />
           )}
         </main>
       </div>
