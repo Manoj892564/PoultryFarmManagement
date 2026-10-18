@@ -251,6 +251,35 @@ router.post('/batches/:id/add-birds', async (req, res) => {
   return res.json(batch);
 });
 
+// Delete / deduct birds from flock batch
+router.post(['/batches/:id/delete-birds', '/batches/:id/remove-birds'], async (req, res) => {
+  if (!dbInitDone) await initDb();
+  const { id } = req.params;
+  const { count } = req.body;
+  const deleteCount = parseInt(count);
+
+  if (isNaN(deleteCount) || deleteCount <= 0) {
+    return res.status(400).json({ error: 'Valid positive count required' });
+  }
+
+  if (isDbConnected && pool) {
+    try {
+      const q = await pool.query(
+        `UPDATE batches SET bird_count = GREATEST(0, bird_count - $1) WHERE batch_id = $2 RETURNING *`,
+        [deleteCount, id]
+      );
+      if (q.rows.length > 0) return res.json(q.rows[0]);
+    } catch (e: any) {
+      console.warn('DB delete birds error:', e.message);
+    }
+  }
+
+  const batch = memoryStore.batches.find(b => b.batch_id === parseInt(id));
+  if (!batch) return res.status(404).json({ error: 'Batch not found' });
+  batch.bird_count = Math.max(0, batch.bird_count - deleteCount);
+  return res.json(batch);
+});
+
 router.put('/batches/:id', async (req, res) => {
   if (!dbInitDone) await initDb();
   const { id } = req.params;
@@ -280,6 +309,8 @@ router.delete('/batches/:id', async (req, res) => {
 
   if (isDbConnected && pool) {
     try {
+      await pool.query('DELETE FROM egg_collections WHERE batch_id = $1', [id]);
+      await pool.query('DELETE FROM feed_consumptions WHERE batch_id = $1', [id]);
       await pool.query('DELETE FROM batches WHERE batch_id = $1', [id]);
       return res.json({ success: true, message: 'Batch deleted' });
     } catch (e: any) {
@@ -288,6 +319,8 @@ router.delete('/batches/:id', async (req, res) => {
   }
 
   memoryStore.batches = memoryStore.batches.filter(b => b.batch_id !== parseInt(id));
+  memoryStore.eggCollections = memoryStore.eggCollections.filter(e => e.batch_id !== parseInt(id));
+  memoryStore.feedConsumptions = memoryStore.feedConsumptions.filter(f => f.batch_id !== parseInt(id));
   return res.json({ success: true, message: 'Batch deleted' });
 });
 

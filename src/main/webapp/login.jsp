@@ -240,7 +240,7 @@
                 <div class="input-group-custom">
                     <i class="bi bi-person"></i>
                     <input type="text" id="username" name="username" class="form-control-custom" 
-                           placeholder="Enter username" value="${enteredUsername != null ? enteredUsername : 'admin'}" required autofocus>
+                           placeholder="Enter username" value="${enteredUsername != null ? enteredUsername : ''}" required autofocus>
                 </div>
             </div>
 
@@ -249,7 +249,7 @@
                 <div class="input-group-custom">
                     <i class="bi bi-lock"></i>
                     <input type="password" id="password" name="password" class="form-control-custom" 
-                           placeholder="Enter password" value="admin123" required>
+                           placeholder="Enter password" value="" required>
                 </div>
             </div>
 
@@ -257,15 +257,6 @@
                 Sign In to Dashboard <i class="bi bi-arrow-right ms-2"></i>
             </button>
         </form>
-
-        <div class="demo-box text-center">
-            <div class="text-muted mb-2"><i class="bi bi-key me-1"></i> Quick Demo Logins (Click to autofill):</div>
-            <div>
-                <span class="demo-chip" onclick="fillCreds('admin', 'admin123')">Admin: admin / admin123</span>
-                <span class="demo-chip" onclick="fillCreds('manager', 'manager123')">Manager: manager / manager123</span>
-                <span class="demo-chip" onclick="fillCreds('staff', 'staff123')">Staff: staff / staff123</span>
-            </div>
-        </div>
     </div>
 
     <script>

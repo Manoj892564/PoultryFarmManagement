@@ -200,6 +200,34 @@ export const api = {
     throw new Error('Batch not found');
   },
 
+  async deleteBirds(batchId: number, count: number): Promise<Batch> {
+    try {
+      const res = await fetch(`${API_BASE}/batches/${batchId}/delete-birds`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ count }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        const current = await this.getBatches();
+        const list = current.map(b => b.batch_id === batchId ? updated : b);
+        localStorage.setItem(CACHE_KEYS.BATCHES, JSON.stringify(list));
+        return updated;
+      }
+    } catch (e) {
+      console.warn('API delete-birds failed, falling back to local');
+    }
+
+    const current = await this.getBatches();
+    const batch = current.find(b => b.batch_id === batchId);
+    if (batch) {
+      batch.bird_count = Math.max(0, batch.bird_count - count);
+      localStorage.setItem(CACHE_KEYS.BATCHES, JSON.stringify(current));
+      return batch;
+    }
+    throw new Error('Batch not found');
+  },
+
   async updateBatch(batchId: number, batch: Partial<Batch>): Promise<Batch> {
     try {
       const res = await fetch(`${API_BASE}/batches/${batchId}`, {
@@ -234,6 +262,13 @@ export const api = {
     const current = await this.getBatches();
     const filtered = current.filter(b => b.batch_id !== batchId);
     localStorage.setItem(CACHE_KEYS.BATCHES, JSON.stringify(filtered));
+
+    // Also remove associated egg collections and feed records locally
+    const eggs = this.getCachedEggCollections().filter(e => e.batch_id !== batchId);
+    localStorage.setItem(CACHE_KEYS.EGGS, JSON.stringify(eggs));
+    const feed = this.getCachedFeedConsumptions().filter(f => f.batch_id !== batchId);
+    localStorage.setItem(CACHE_KEYS.FEED, JSON.stringify(feed));
+
     return true;
   },
 

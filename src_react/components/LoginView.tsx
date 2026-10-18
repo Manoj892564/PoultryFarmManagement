@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { User } from '../types';
 import { api } from '../services/api';
-import { Lock, User as UserIcon, ArrowRight, ShieldCheck, KeyRound, AlertCircle } from 'lucide-react';
+import { Lock, User as UserIcon, ArrowRight, AlertCircle } from 'lucide-react';
 
 interface Props {
   onLoginSuccess: (user: User) => void;
 }
 
 export const LoginView: React.FC<Props> = ({ onLoginSuccess }) => {
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -23,18 +23,13 @@ export const LoginView: React.FC<Props> = ({ onLoginSuccess }) => {
       if (user) {
         onLoginSuccess(user);
       } else {
-        setError('Invalid username or password. Please use the quick demo accounts below.');
+        setError('Invalid username or password.');
       }
     } catch (err: any) {
       setError(err.message || 'Login failed');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleQuickRole = (u: string, p: string) => {
-    setUsername(u);
-    setPassword(p);
   };
 
   return (
@@ -100,43 +95,6 @@ export const LoginView: React.FC<Props> = ({ onLoginSuccess }) => {
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
-
-        {/* Quick 1-Click Demo Role Selector Buttons */}
-        <div className="mt-6 pt-5 border-t border-slate-800/80">
-          <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-2.5 font-medium justify-center">
-            <KeyRound className="w-3.5 h-3.5 text-amber-400" />
-            <span>1-Click Presentation Demo Roles</span>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              type="button"
-              onClick={() => handleQuickRole('admin', 'admin123')}
-              className="p-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-center transition"
-            >
-              <div className="text-[11px] font-bold text-emerald-400">Admin</div>
-              <div className="text-[9px] text-slate-400 font-mono">admin / 123</div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleQuickRole('manager', 'manager123')}
-              className="p-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-center transition"
-            >
-              <div className="text-[11px] font-bold text-amber-400">Manager</div>
-              <div className="text-[9px] text-slate-400 font-mono">manager / 123</div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleQuickRole('staff', 'staff123')}
-              className="p-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-center transition"
-            >
-              <div className="text-[11px] font-bold text-blue-400">Staff</div>
-              <div className="text-[9px] text-slate-400 font-mono">staff / 123</div>
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );

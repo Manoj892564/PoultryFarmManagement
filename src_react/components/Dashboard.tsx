@@ -7,9 +7,11 @@ import {
   Wheat, 
   IndianRupee, 
   PlusCircle, 
+  MinusCircle,
   TrendingUp, 
   Layers, 
-  ArrowUpRight 
+  ArrowUpRight,
+  Trash2
 } from 'lucide-react';
 import { DashboardSummary, Batch, EggCollection } from '../types';
 
@@ -18,6 +20,8 @@ interface Props {
   batches: Batch[];
   recentEggs: EggCollection[];
   onOpenAddBirdsModal: () => void;
+  onOpenDeleteBirdsModal: (batchId?: number) => void;
+  onDeleteBatch?: (batchId: number) => Promise<void>;
   onNavigate: (tab: any) => void;
 }
 
@@ -26,6 +30,8 @@ export const Dashboard: React.FC<Props> = ({
   batches,
   recentEggs,
   onOpenAddBirdsModal,
+  onOpenDeleteBirdsModal,
+  onDeleteBatch,
   onNavigate
 }) => {
   const [hoveredPoint, setHoveredPoint] = useState<number | null>(null);
@@ -106,6 +112,13 @@ export const Dashboard: React.FC<Props> = ({
           >
             <PlusCircle className="w-4 h-4" />
             <span>+ Add Birds</span>
+          </button>
+          <button
+            onClick={() => onOpenDeleteBirdsModal()}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 text-white text-xs font-semibold shadow-lg shadow-rose-600/25 transition active:scale-95"
+          >
+            <MinusCircle className="w-4 h-4" />
+            <span>- Delete Birds</span>
           </button>
           <button
             onClick={() => onNavigate('eggs')}
@@ -350,11 +363,35 @@ export const Dashboard: React.FC<Props> = ({
                     {b.breed} • {b.arrival_date ? b.arrival_date.split('T')[0] : ''}
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-xs font-bold text-emerald-400">
-                    {b.bird_count.toLocaleString()}
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <div className="text-xs font-bold text-emerald-400">
+                      {b.bird_count.toLocaleString()}
+                    </div>
+                    <div className="text-[10px] text-slate-400">birds</div>
                   </div>
-                  <div className="text-[10px] text-slate-400">birds</div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => onOpenDeleteBirdsModal(b.batch_id)}
+                      className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/25 text-rose-400 border border-rose-500/20 transition"
+                      title={`Delete birds from ${b.batch_name}`}
+                    >
+                      <MinusCircle className="w-3.5 h-3.5" />
+                    </button>
+                    {onDeleteBatch && (
+                      <button
+                        onClick={() => {
+                          if (confirm(`Are you sure you want to delete ${b.batch_name}?`)) {
+                            onDeleteBatch(b.batch_id);
+                          }
+                        }}
+                        className="p-1.5 rounded-lg hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition"
+                        title={`Delete batch ${b.batch_name}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

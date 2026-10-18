@@ -8,6 +8,7 @@ import {
   TrendingUp, 
   Calendar, 
   PlusCircle, 
+  MinusCircle,
   X,
   Check
 } from 'lucide-react';
@@ -15,6 +16,7 @@ import {
 interface Props {
   batches: Batch[];
   onAddBirds: (batchId: number, count: number) => Promise<void>;
+  onDeleteBirds: (batchId: number, count: number) => Promise<void>;
   onCreateBatch: (batch: Omit<Batch, 'batch_id'>) => Promise<void>;
   onUpdateBatch: (batchId: number, batch: Partial<Batch>) => Promise<void>;
   onDeleteBatch: (batchId: number) => Promise<void>;
@@ -23,14 +25,16 @@ interface Props {
 export const BatchesView: React.FC<Props> = ({
   batches,
   onAddBirds,
+  onDeleteBirds,
   onCreateBatch,
   onUpdateBatch,
   onDeleteBatch
 }) => {
-  // Inflow bar state
-  const [inflowBatchId, setInflowBatchId] = useState<number>(batches[0]?.batch_id || 1);
-  const [inflowCount, setInflowCount] = useState<number>(500);
-  const [inflowSuccess, setInflowSuccess] = useState(false);
+  // Dual Flow bar state (Inflow / Outflow)
+  const [flowMode, setFlowMode] = useState<'inflow' | 'outflow'>('inflow');
+  const [flowBatchId, setFlowBatchId] = useState<number>(batches[0]?.batch_id || 1);
+  const [flowCount, setFlowCount] = useState<number>(100);
+  const [flowSuccess, setFlowSuccess] = useState<string | null>(null);
 
   // Modal states
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -47,6 +51,11 @@ export const BatchesView: React.FC<Props> = ({
   const [quickAddTarget, setQuickAddTarget] = useState<Batch | null>(null);
   const [quickAddCount, setQuickAddCount] = useState<number>(100);
 
+  // Inline quick delete modal
+  const [quickDeleteTarget, setQuickDeleteTarget] = useState<Batch | null>(null);
+  const [quickDeleteCount, setQuickDeleteCount] = useState<number>(100);
+  const [quickDeleteReason, setQuickDeleteReason] = useState<string>('Data Entry Correction');
+
   // Dynamic Age in Weeks calculation
   const calculateAgeInWeeks = (arrivalDate: string) => {
     const arrival = new Date(arrivalDate);
@@ -57,12 +66,17 @@ export const BatchesView: React.FC<Props> = ({
     return `${weeks} weeks`;
   };
 
-  const handleInflowSubmit = async (e: React.FormEvent) => {
+  const handleFlowSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inflowBatchId || inflowCount <= 0) return;
-    await onAddBirds(inflowBatchId, inflowCount);
-    setInflowSuccess(true);
-    setTimeout(() => setInflowSuccess(false), 2500);
+    if (!flowBatchId || flowCount <= 0) return;
+    if (flowMode === 'inflow') {
+      await onAddBirds(flowBatchId, flowCount);
+      setFlowSuccess('Birds Added Successfully!');
+    } else {
+      await onDeleteBirds(flowBatchId, flowCount);
+      setFlowSuccess('Birds Deleted Successfully!');
+    }
+    setTimeout(() => setFlowSuccess(null), 2500);
   };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
@@ -109,32 +123,73 @@ export const BatchesView: React.FC<Props> = ({
     setQuickAddTarget(null);
   };
 
+  const handleQuickDelete = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickDeleteTarget || quickDeleteCount <= 0) return;
+    await onDeleteBirds(quickDeleteTarget.batch_id, quickDeleteCount);
+    setQuickDeleteTarget(null);
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* 1. Inflow Bar: Dedicated slot at the top */}
-      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-950/70 via-slate-900 to-slate-900 border border-emerald-500/30 shadow-lg">
+      {/* 1. Inflow / Outflow Bar: Dedicated slot at the top */}
+      <div className={`p-4 sm:p-5 rounded-2xl border shadow-lg transition-all ${
+        flowMode === 'inflow' 
+          ? 'bg-gradient-to-r from-emerald-950/70 via-slate-900 to-slate-900 border-emerald-500/30' 
+          : 'bg-gradient-to-r from-rose-950/70 via-slate-900 to-slate-900 border-rose-500/30'
+      }`}>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <TrendingUp className="w-5 h-5" />
+            <div className={`p-2.5 rounded-xl border ${
+              flowMode === 'inflow' 
+                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+            }`}>
+              {flowMode === 'inflow' ? <TrendingUp className="w-5 h-5" /> : <MinusCircle className="w-5 h-5 text-rose-400" />}
             </div>
             <div>
-              <div className="text-sm font-bold text-white flex items-center gap-2">
-                Flock Inflow Bar <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">Fast Inflow</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-white">
+                  {flowMode === 'inflow' ? 'Flock Inflow Bar' : 'Flock Bird Deletion Bar'}
+                </span>
+                <div className="inline-flex rounded-lg p-0.5 bg-slate-800 border border-slate-700 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => { setFlowMode('inflow'); setFlowSuccess(null); }}
+                    className={`px-2 py-0.5 rounded-md font-semibold transition ${
+                      flowMode === 'inflow' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    + Add Birds
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setFlowMode('outflow'); setFlowSuccess(null); }}
+                    className={`px-2 py-0.5 rounded-md font-semibold transition ${
+                      flowMode === 'outflow' ? 'bg-rose-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    - Delete Birds
+                  </button>
+                </div>
               </div>
-              <p className="text-xs text-slate-400">Add newly arrived birds directly into an active flock in one click.</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {flowMode === 'inflow' 
+                  ? 'Add newly arrived birds directly into an active flock in one click.' 
+                  : 'Deduct or delete birds from active flock (mortality, culling, or correction).'}
+              </p>
             </div>
           </div>
 
-          <form onSubmit={handleInflowSubmit} className="flex items-center gap-2 flex-wrap">
+          <form onSubmit={handleFlowSubmit} className="flex items-center gap-2 flex-wrap">
             <select
-              value={inflowBatchId}
-              onChange={(e) => setInflowBatchId(Number(e.target.value))}
+              value={flowBatchId}
+              onChange={(e) => setFlowBatchId(Number(e.target.value))}
               className="px-3 py-2 text-xs rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-none focus:border-emerald-500"
             >
               {batches.map((b) => (
                 <option key={b.batch_id} value={b.batch_id}>
-                  {b.batch_name} ({b.bird_count} birds)
+                  {b.batch_name} ({b.bird_count.toLocaleString()} birds)
                 </option>
               ))}
             </select>
@@ -143,20 +198,26 @@ export const BatchesView: React.FC<Props> = ({
               <input
                 type="number"
                 min="1"
-                value={inflowCount}
-                onChange={(e) => setInflowCount(Number(e.target.value))}
+                value={flowCount}
+                onChange={(e) => setFlowCount(Number(e.target.value))}
                 className="w-28 px-3 py-2 text-xs rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-none focus:border-emerald-500 pl-7"
                 placeholder="Count"
               />
-              <span className="absolute left-2.5 top-2 text-xs text-slate-400">+</span>
+              <span className={`absolute left-2.5 top-2 text-xs font-bold ${flowMode === 'inflow' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {flowMode === 'inflow' ? '+' : '-'}
+              </span>
             </div>
 
             <button
               type="submit"
-              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-600/30 transition flex items-center gap-1.5"
+              className={`px-4 py-2 rounded-xl text-white text-xs font-semibold shadow-md transition flex items-center gap-1.5 ${
+                flowMode === 'inflow' 
+                  ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/30' 
+                  : 'bg-rose-600 hover:bg-rose-500 shadow-rose-600/30'
+              }`}
             >
-              {inflowSuccess ? <Check className="w-4 h-4 text-emerald-200" /> : <PlusCircle className="w-4 h-4" />}
-              <span>{inflowSuccess ? 'Added Successfully!' : 'Apply Inflow'}</span>
+              {flowSuccess ? <Check className="w-4 h-4 text-white" /> : flowMode === 'inflow' ? <PlusCircle className="w-4 h-4" /> : <MinusCircle className="w-4 h-4" />}
+              <span>{flowSuccess ? flowSuccess : flowMode === 'inflow' ? 'Apply Inflow' : 'Apply Bird Deletion'}</span>
             </button>
           </form>
         </div>
@@ -242,6 +303,17 @@ export const BatchesView: React.FC<Props> = ({
                     >
                       + Add
                     </button>
+                    {/* Inline - Delete Birds button */}
+                    <button
+                      onClick={() => {
+                        setQuickDeleteTarget(b);
+                        setQuickDeleteCount(Math.min(100, b.bird_count));
+                      }}
+                      className="px-2 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-[11px] font-medium transition"
+                      title="Delete / deduct birds from this batch"
+                    >
+                      - Delete
+                    </button>
                     {/* Edit */}
                     <button
                       onClick={() => openEdit(b)}
@@ -250,7 +322,7 @@ export const BatchesView: React.FC<Props> = ({
                     >
                       <Edit3 className="w-3.5 h-3.5" />
                     </button>
-                    {/* Delete */}
+                    {/* Delete Batch */}
                     <button
                       onClick={() => {
                         if (confirm(`Are you sure you want to delete ${b.batch_name}?`)) {
@@ -258,7 +330,7 @@ export const BatchesView: React.FC<Props> = ({
                         }
                       }}
                       className="p-1 rounded-lg hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition"
-                      title="Delete Batch"
+                      title="Delete Entire Batch"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -380,7 +452,7 @@ export const BatchesView: React.FC<Props> = ({
               </button>
             </div>
             <p className="text-xs text-slate-300 mb-3">
-              Adding new stock to <strong className="text-emerald-400">{quickAddTarget.batch_name}</strong> (currently {quickAddTarget.bird_count} birds).
+              Adding new stock to <strong className="text-emerald-400">{quickAddTarget.batch_name}</strong> (currently {quickAddTarget.bird_count.toLocaleString()} birds).
             </p>
             <form onSubmit={handleQuickAdd} className="space-y-3">
               <input
@@ -406,6 +478,96 @@ export const BatchesView: React.FC<Props> = ({
                 >
                   Confirm Addition
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Inline Quick Delete Birds Modal */}
+      {quickDeleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-sm bg-slate-900 border border-rose-500/30 rounded-2xl shadow-2xl p-5">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800 mb-3">
+              <div className="flex items-center gap-2">
+                <MinusCircle className="w-4 h-4 text-rose-400" />
+                <h4 className="text-sm font-semibold text-white">Delete Birds from Flock</h4>
+              </div>
+              <button onClick={() => setQuickDeleteTarget(null)} className="text-slate-400 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-xs text-slate-300 mb-3">
+              Deduct birds from <strong className="text-rose-400">{quickDeleteTarget.batch_name}</strong> (currently <span className="font-mono">{quickDeleteTarget.bird_count.toLocaleString()}</span> live birds).
+            </p>
+            <form onSubmit={handleQuickDelete} className="space-y-3">
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">Reason</label>
+                <select
+                  value={quickDeleteReason}
+                  onChange={(e) => setQuickDeleteReason(e.target.value)}
+                  className="w-full px-3 py-1.5 text-xs rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-none focus:border-rose-500"
+                >
+                  <option value="Data Entry Correction">Data Entry Correction</option>
+                  <option value="Mortality / Disease">Mortality / Disease</option>
+                  <option value="Culling">Culling / Slaughter</option>
+                  <option value="Sale">Commercial Sale</option>
+                </select>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] text-slate-400">Number of birds to delete</label>
+                  <button
+                    type="button"
+                    onClick={() => setQuickDeleteCount(quickDeleteTarget.bird_count)}
+                    className="text-[10px] text-rose-400 hover:underline font-mono"
+                  >
+                    All ({quickDeleteTarget.bird_count.toLocaleString()})
+                  </button>
+                </div>
+                <input
+                  type="number"
+                  min="1"
+                  max={quickDeleteTarget.bird_count}
+                  required
+                  value={quickDeleteCount}
+                  onChange={(e) => setQuickDeleteCount(Number(e.target.value))}
+                  placeholder="Number of birds"
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-none focus:border-rose-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (confirm(`Are you sure you want to delete entire batch "${quickDeleteTarget.batch_name}"?`)) {
+                      const id = quickDeleteTarget.batch_id;
+                      setQuickDeleteTarget(null);
+                      await onDeleteBatch(id);
+                    }
+                  }}
+                  className="text-[11px] text-rose-400 hover:underline flex items-center gap-1"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  <span>Delete Batch</span>
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setQuickDeleteTarget(null)}
+                    className="px-3 py-1.5 rounded-xl bg-slate-800 text-xs text-slate-300 hover:bg-slate-700"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-xs text-white font-semibold shadow-md shadow-rose-600/30"
+                  >
+                    Confirm Deletion
+                  </button>
+                </div>
               </div>
             </form>
           </div>
